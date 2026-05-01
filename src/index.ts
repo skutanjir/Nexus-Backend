@@ -41,13 +41,17 @@ setIO(io);
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
-  socket.on('join-order-chat', (orderId: string) => {
-    socket.join(`order:${orderId}`);
-    console.log(`Socket ${socket.id} joined order:${orderId}`);
+  // General user room for notifications (bell)
+  socket.on('join_user', (userId: string) => {
+    socket.join(`user_${userId}`);
+    console.log(`Socket ${socket.id} joined user_${userId}`);
   });
 
-  socket.on('new-message', (data: { orderId: string; message: string; senderId: string; senderRole: string }) => {
-    io.to(`order:${data.orderId}`).emit('receive-message', data);
+  // Profile-based chat room
+  socket.on('join_chat', (data: { userId: string; sellerId: string }) => {
+    const room = `chat_${data.userId}_${data.sellerId}`;
+    socket.join(room);
+    console.log(`Socket ${socket.id} joined ${room}`);
   });
 
   socket.on('disconnect', () => {
@@ -59,6 +63,7 @@ io.on('connection', (socket) => {
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: false // Disable strict CSP to allow WebSockets (ws://) and external APIs like Midtrans
   })
 );
 app.use(
@@ -89,7 +94,7 @@ app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/addresses', addressesRouter);
-app.use('/api/wishlist', wishlistRouter);
+app.use('/api/wishlists', wishlistRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/midtrans', midtransRouter);
 app.use('/api/payments', paymentsRouter);

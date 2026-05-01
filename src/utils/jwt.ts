@@ -11,7 +11,7 @@ export function signToken(payload: JwtPayload): string {
     throw new Error('JWT_SECRET is not defined in environment variables');
   }
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: ACCESS_TOKEN_EXPIRY,
+    expiresIn: ACCESS_TOKEN_EXPIRY as any,
   });
 }
 
@@ -20,7 +20,7 @@ export function signRefreshToken(payload: JwtPayload): string {
     throw new Error('JWT_REFRESH_SECRET is not defined');
   }
   return jwt.sign(payload, JWT_REFRESH_SECRET, {
-    expiresIn: REFRESH_TOKEN_EXPIRY,
+    expiresIn: REFRESH_TOKEN_EXPIRY as any,
   });
 }
 

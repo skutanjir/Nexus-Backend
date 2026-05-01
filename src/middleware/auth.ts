@@ -33,3 +33,27 @@ export function requireSeller(req: Request, res: Response, next: NextFunction): 
   }
   next();
 }
+
+export async function optionalAuthenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(' ')[1];
+
+  if (!token) {
+    next();
+    return;
+  }
+
+  try {
+    const isBlacklisted = await redis.get(`blacklist:${token}`);
+    if (isBlacklisted) {
+      next();
+      return;
+    }
+
+    const payload = verifyToken(token);
+    req.user = payload;
+    next();
+  } catch (err) {
+    next();
+  }
+}

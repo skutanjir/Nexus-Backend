@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { verifyToken, verifyRefreshToken, signToken, signRefreshToken } from '../utils/jwt';
 import redis from '../config/redis';
-import { authenticate } from '../middleware/auth';
+import { authenticate, optionalAuthenticate } from '../middleware/auth';
 import { JwtPayload } from '../types';
 import jwt from 'jsonwebtoken';
 import pool from '../config/database';
@@ -65,13 +65,13 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const accessToken = signToken({
-      id: user.id,
+      userId: user.id,
       role: user.role,
       email: user.email
     });
 
     const refreshToken = signRefreshToken({
-      id: user.id,
+      userId: user.id,
       role: user.role,
       email: user.email
     });
@@ -87,7 +87,7 @@ router.post('/login', async (req: Request, res: Response) => {
       message: 'Login berhasil',
       accessToken,
       user: {
-        id: user.id,
+        userId: user.id,
         email: user.email,
         full_name: user.full_name,
         role: user.role
@@ -100,11 +100,11 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/me', authenticate, async (req: Request, res: Response) => {
+router.get('/me', optionalAuthenticate, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id || req.user?.userId;
+    const userId = req.user?.userId || (req.user as any)?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(200).json({ user: null, profile: null });
     }
 
     const profileResult = await pool.query('SELECT * FROM profiles WHERE id = $1', [userId]);
@@ -140,7 +140,7 @@ router.post('/refresh', (req: Request, res: Response) => {
     const decoded = verifyRefreshToken(refreshToken);
 
     const newAccessToken = signToken({
-      id: decoded.id,
+      userId: decoded.userId,
       role: decoded.role,
       email: decoded.email
     });

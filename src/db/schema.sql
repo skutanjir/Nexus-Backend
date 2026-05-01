@@ -136,7 +136,8 @@ CREATE TABLE IF NOT EXISTS public.product_reviews (
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.chat_messages (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  seller_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   sender_id UUID REFERENCES public.profiles(id),
   sender_role TEXT NOT NULL CHECK (sender_role IN ('user', 'seller')),
   message TEXT,
@@ -157,8 +158,9 @@ CREATE INDEX IF NOT EXISTS idx_order_items_product_id  ON public.order_items(pro
 CREATE INDEX IF NOT EXISTS idx_products_category_id    ON public.products(category_id);
 CREATE INDEX IF NOT EXISTS idx_wishlists_user_id       ON public.wishlists(user_id);
 CREATE INDEX IF NOT EXISTS idx_addresses_user_id       ON public.addresses(user_id);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_order_id  ON public.chat_messages(order_id);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_created   ON public.chat_messages(order_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_user_id   ON public.chat_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_seller_id ON public.chat_messages(seller_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_created   ON public.chat_messages(user_id, seller_id, created_at ASC);
 
 -- ============================================
 -- 12. UPDATED_AT TRIGGER LOGIC

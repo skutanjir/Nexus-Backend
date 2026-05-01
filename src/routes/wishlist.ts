@@ -10,7 +10,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query(
       `SELECT w.*, json_build_object(
-        'id', p.id, 'name', p.name, 'price', p.price, 'image_url', p.image_url, 'stock', p.stock,
+        'id', p.id, 'name', p.name, 'price', p.price, 'image_url', p.image_url, 'stock', p.stock, 'is_archived', p.is_archived,
         'category', json_build_object('name', c.name)
       ) as product
       FROM wishlists w

@@ -12,6 +12,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       `SELECT o.*,
         (SELECT json_agg(json_build_object(
           'id', oi.id, 'quantity', oi.quantity, 'price_at_purchase', oi.price_at_purchase,
+          'is_reviewed', EXISTS(SELECT 1 FROM product_reviews pr WHERE pr.product_id = oi.product_id AND pr.user_id = $1),
           'product', json_build_object('id', p.id, 'name', p.name, 'image_url', p.image_url)
         )) FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id) as order_items
       FROM orders o WHERE o.user_id = $1 ORDER BY o.created_at DESC LIMIT 50`,
@@ -78,6 +79,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       `SELECT o.*,
         (SELECT json_agg(json_build_object(
           'id', oi.id, 'quantity', oi.quantity, 'price_at_purchase', oi.price_at_purchase,
+          'is_reviewed', EXISTS(SELECT 1 FROM product_reviews pr WHERE pr.product_id = oi.product_id AND pr.user_id = $2),
           'product', json_build_object('id', p.id, 'name', p.name, 'image_url', p.image_url, 'description', p.description)
         )) FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id) as order_items
       FROM orders o WHERE o.id = $1 AND (o.user_id = $2 OR $3 = 'seller')`,
@@ -117,6 +119,12 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
           'INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase) VALUES ($1,$2,$3,$4)',
           [order.id, item.product_id, item.quantity, item.price_at_purchase]
         );
+        
+        // Deduct stock
+        await client.query(
+          'UPDATE products SET stock = GREATEST(stock - $1, 0) WHERE id = $2',
+          [item.quantity, item.product_id]
+        );
       }
     }
     await client.query('COMMIT');
@@ -130,10 +138,29 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// PUT /:id/status - update order status (seller only)
-router.put('/:id/status', requireSeller, async (req: Request, res: Response): Promise<void> => {
+// PUT /:id/status - update order status
+router.put('/:id/status', async (req: Request, res: Response): Promise<void> => {
   const { status } = req.body;
   try {
+    // If the user is a buyer, they can only set their own order status to 'completed'
+    if (req.user!.role !== 'seller') {
+      if (status !== 'completed') {
+        res.status(403).json({ error: 'Not authorized to set this status' });
+        return;
+      }
+      const result = await pool.query(
+        'UPDATE orders SET status=$1, updated_at=now() WHERE id=$2 AND user_id=$3 RETURNING id',
+        [status, req.params.id, req.user!.userId]
+      );
+      if (result.rowCount === 0) {
+        res.status(404).json({ error: 'Order not found or unauthorized' });
+        return;
+      }
+      res.json({ message: 'Status updated' });
+      return;
+    }
+
+    // Seller logic: can update any order to any status
     await pool.query('UPDATE orders SET status=$1, updated_at=now() WHERE id=$2', [
       status,
       req.params.id,
@@ -178,10 +205,19 @@ router.put('/:id/payment', async (req: Request, res: Response): Promise<void> =>
 // PUT /:id/cancel - cancel order
 router.put('/:id/cancel', async (req: Request, res: Response): Promise<void> => {
   try {
-    await pool.query(
-      "UPDATE orders SET status='cancelled', updated_at=now() WHERE id=$1 AND (user_id=$2 OR $3='seller')",
+    const result = await pool.query(
+      "UPDATE orders SET status='cancelled', updated_at=now() WHERE id=$1 AND (user_id=$2 OR $3='seller') RETURNING id",
       [req.params.id, req.user!.userId, req.user!.role]
     );
+
+    if (result.rowCount && result.rowCount > 0) {
+      // Restore stock for cancelled order
+      const itemsRes = await pool.query('SELECT product_id, quantity FROM order_items WHERE order_id=$1', [req.params.id]);
+      for (const item of itemsRes.rows) {
+        await pool.query('UPDATE products SET stock = stock + $1 WHERE id = $2', [item.quantity, item.product_id]);
+      }
+    }
+
     res.json({ message: 'Cancelled' });
   } catch (err) {
     console.error(err);
