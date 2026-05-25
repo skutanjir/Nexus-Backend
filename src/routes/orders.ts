@@ -13,7 +13,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
         (SELECT json_agg(json_build_object(
           'id', oi.id, 'quantity', oi.quantity, 'price_at_purchase', oi.price_at_purchase,
           'is_reviewed', EXISTS(SELECT 1 FROM product_reviews pr WHERE pr.product_id = oi.product_id AND pr.user_id = $1),
-          'product', json_build_object('id', p.id, 'name', p.name, 'image_url', p.image_url)
+          'product', json_build_object('id', p.id, 'seller_id', p.seller_id, 'name', p.name, 'image_url', p.image_url)
         )) FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id) as order_items
       FROM orders o WHERE o.user_id = $1 ORDER BY o.created_at DESC LIMIT 50`,
       [req.user!.userId]
@@ -33,7 +33,7 @@ router.get('/admin', requireSeller, async (_req: Request, res: Response): Promis
         json_build_object('full_name', pr.full_name, 'email', pr.email) as profile,
         (SELECT json_agg(json_build_object(
           'id', oi.id, 'quantity', oi.quantity, 'price_at_purchase', oi.price_at_purchase,
-          'product', json_build_object('id', p.id, 'name', p.name, 'image_url', p.image_url)
+          'product', json_build_object('id', p.id, 'seller_id', p.seller_id, 'name', p.name, 'image_url', p.image_url)
         )) FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id) as order_items
       FROM orders o JOIN profiles pr ON pr.id = o.user_id ORDER BY o.created_at DESC
     `);
@@ -80,7 +80,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
         (SELECT json_agg(json_build_object(
           'id', oi.id, 'quantity', oi.quantity, 'price_at_purchase', oi.price_at_purchase,
           'is_reviewed', EXISTS(SELECT 1 FROM product_reviews pr WHERE pr.product_id = oi.product_id AND pr.user_id = $2),
-          'product', json_build_object('id', p.id, 'name', p.name, 'image_url', p.image_url, 'description', p.description)
+          'product', json_build_object('id', p.id, 'seller_id', p.seller_id, 'name', p.name, 'image_url', p.image_url, 'description', p.description)
         )) FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id) as order_items
       FROM orders o WHERE o.id = $1 AND (o.user_id = $2 OR $3 = 'seller')`,
       [req.params.id, req.user!.userId, req.user!.role]

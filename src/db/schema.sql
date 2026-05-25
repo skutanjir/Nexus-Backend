@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
 -- ============================================
 CREATE TABLE IF NOT EXISTS public.products (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  seller_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
   level_id TEXT,
   name TEXT NOT NULL,
@@ -45,9 +46,13 @@ CREATE TABLE IF NOT EXISTS public.products (
   price DECIMAL(12,2) NOT NULL DEFAULT 0,
   stock INTEGER DEFAULT 0,
   image_url TEXT,
+  is_archived BOOLEAN DEFAULT false NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
+
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false NOT NULL;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seller_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE;
 
 -- ============================================
 -- 4. ORDERS TABLE
@@ -130,6 +135,9 @@ CREATE TABLE IF NOT EXISTS public.product_reviews (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
   UNIQUE(product_id, user_id)
 );
+
+ALTER TABLE public.product_reviews ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT false NOT NULL;
+ALTER TABLE public.product_reviews ADD COLUMN IF NOT EXISTS seller_reply TEXT;
 
 -- ============================================
 -- 10. CHAT MESSAGES TABLE

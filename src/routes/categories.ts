@@ -7,7 +7,13 @@ const router = Router();
 // GET / - list all categories (public)
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const result = await pool.query('SELECT * FROM categories ORDER BY name');
+    const result = await pool.query(`
+      SELECT c.*, COUNT(p.id)::int AS product_count
+      FROM categories c
+      LEFT JOIN products p ON p.category_id = c.id
+      GROUP BY c.id
+      ORDER BY c.name
+    `);
     res.json(result.rows);
   } catch (err) {
     console.error(err);

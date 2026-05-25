@@ -11,7 +11,6 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
       SELECT p.*, json_build_object('id', c.id, 'name', c.name, 'slug', c.slug) as category,
       (SELECT COALESCE(json_agg(json_build_object('rating', pr.rating)), '[]') FROM product_reviews pr WHERE pr.product_id = p.id) as reviews
       FROM products p LEFT JOIN categories c ON c.id = p.category_id
-      WHERE p.is_archived = false
       ORDER BY p.created_at DESC
     `);
     res.json(result.rows);
@@ -27,7 +26,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     const result = await pool.query(
       `       SELECT p.*, json_build_object('id', c.id, 'name', c.name, 'slug', c.slug) as category
        FROM products p LEFT JOIN categories c ON c.id = p.category_id
-       WHERE p.id = $1 AND p.is_archived = false`,
+       WHERE p.id = $1`,
       [req.params.id]
     );
     if (!result.rows[0]) {
